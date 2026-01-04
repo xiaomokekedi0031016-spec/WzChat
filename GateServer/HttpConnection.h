@@ -1,11 +1,14 @@
 #pragma once
 #include "const.h"
-
 class HttpConnection :public std::enable_shared_from_this<HttpConnection>
 {
 public:
+	friend class LogicSystem;
 	HttpConnection(boost::asio::io_context& ioc);
 	void Start();
+	tcp::socket& GetSocket() {
+		return _socket;
+	}
 
 private:
 	tcp::socket _socket;
@@ -20,4 +23,8 @@ private:
 	void CheckDeadline();
 	void HandleReq();
 	void WriteResponse();
+
+	void PreParseGetParam();
+	std::string _get_url;
+	std::unordered_map<std::string, std::string> _get_params;
 };

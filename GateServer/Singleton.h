@@ -9,13 +9,13 @@ protected:
     Singleton& operator=(const Singleton&) = delete;
 
 public:
-    static T& Instance() {
+    static T& GetInstance() {
         static T obj;  
         return obj;
     }
 
     static void PrintAddress() {
-        std::cout << &Instance() << std::endl;
+        std::cout << &GetInstance() << std::endl;
     }
 
     ~Singleton() {
