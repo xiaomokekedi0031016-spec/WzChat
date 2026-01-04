@@ -6,9 +6,20 @@
 #include <iostream>
 #include "Singleton.h"
 #include <unordered_map>
+#include <hiredis.h>
 
 namespace net = boost::asio;
 namespace beast = boost::beast;
 namespace http = boost::beast::http;
 using tcp = boost::asio::ip::tcp;
 
+class Defer {
+public:
+	Defer(std::function<void()> func) : func_(func) {}
+	~Defer() {
+		func_();
+	}
+
+private:
+	std::function<void()> func_;
+};
