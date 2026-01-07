@@ -29,7 +29,7 @@ async function GetVarifyCode(call, callback) {
         }
 
         console.log("uniqueId is ", uniqueId)
-        let text_str =  '恭喜您抽到了圣诞限定飞机杯，您的验证码为'+ uniqueId +'请一分钟内完成注册，登录www.91prony.com领取您的福利，我们会在一天内发货感谢您的参与'
+        let text_str =  '您的验证码为'+ uniqueId +'请一分钟内完成注册'
         //发送邮件
         let mailOptions = {
             from: 'u91porny@163.com',
