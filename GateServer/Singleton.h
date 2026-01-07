@@ -9,9 +9,13 @@ protected:
     Singleton& operator=(const Singleton&) = delete;
 
 public:
-    static T& GetInstance() {
-        static T obj;  
-        return obj;
+    //static T& GetInstance() {
+    //    static T obj;  
+    //    return obj;
+    //}
+    static std::shared_ptr<T> GetInstance() {
+        static std::shared_ptr<T> instance(new T);
+        return instance;
     }
 
     static void PrintAddress() {

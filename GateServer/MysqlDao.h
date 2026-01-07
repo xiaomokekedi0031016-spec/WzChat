@@ -13,7 +13,7 @@
 #include <jdbc/cppconn/statement.h>
 
 struct UserInfo {
-	int uid;
+	int uid;//”√ªßid
 	std::string name;
 	std::string email;
 	std::string icon;
@@ -52,6 +52,12 @@ public:
 		}
 	}
 
+	~MySqlPool() {
+		std::unique_lock<std::mutex> guard(mutex_);
+		Close();
+
+	}
+
 	void checkConnection() {
 		std::lock_guard<std::mutex> guard(mutex_);
 		int poolsize = pool_.size();
@@ -82,6 +88,36 @@ public:
 			}
 		}
 	}
+	
+	void Close() {
+		b_stop_ = true;
+		cond_.notify_all();
+	}
+
+	std::unique_ptr<SqlConnection> getConnection() {
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [this] {
+			if (b_stop_) {
+				return true;
+			}
+			return !pool_.empty(); 
+		});
+		if (b_stop_) {
+			return nullptr;
+		}
+		std::unique_ptr<SqlConnection> con(std::move(pool_.front()));
+		pool_.pop();
+		return con;
+	}
+
+	void returnConnection(std::unique_ptr<SqlConnection> con) {
+		std::unique_lock<std::mutex> lock(mutex_);
+		if (b_stop_) {
+			return;
+		}
+		pool_.push(std::move(con));
+		cond_.notify_one();
+	}
 
 private:
 	std::string url_;
@@ -97,4 +133,18 @@ private:
 	std::atomic<int> _fail_count;
 };
 
+class MysqlDao
+{
+public:
+	MysqlDao();
+	~MysqlDao();
+	int RegUser(const std::string& name, const std::string& email, const std::string& pwd);
+	bool CheckEmail(const std::string& name, const std::string& email);
+	bool UpdatePwd(const std::string& name, const std::string& newpwd);
+	int RegUserTransaction(const std::string& name, const std::string& email, const std::string& pwd, const std::string& icon);
+	bool CheckPwd(const std::string& name, const std::string& pwd, UserInfo& userInfo);
+	bool TestProcedure(const std::string& email, int& uid, std::string& name);
 
+private:
+	std::unique_ptr<MySqlPool> pool_;
+};

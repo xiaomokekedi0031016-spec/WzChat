@@ -23,6 +23,9 @@ private slots:
 
 private:
     Ui::LoginDialog *ui;
+
+private:
+    void initHead();
 };
 
 #endif // LOGINDIALOG_H

@@ -2,7 +2,7 @@
 #include "ConfigMgr.h"
 
 RedisMgr::RedisMgr() {
-	auto& gCfgMgr = ConfigMgr::getInstance();
+	auto& gCfgMgr = ConfigMgr::Inst();
 	auto host = gCfgMgr["Redis"]["Host"];
 	auto port = gCfgMgr["Redis"]["Port"];
 	auto pwd = gCfgMgr["Redis"]["Passwd"];

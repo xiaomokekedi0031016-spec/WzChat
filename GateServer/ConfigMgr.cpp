@@ -23,7 +23,7 @@ std::string SectionInfo::operator[](const std::string& key) {
 	return _section_datas[key];
 }
 
-ConfigMgr& ConfigMgr::getInstance() {
+ConfigMgr& ConfigMgr::Inst() {
 	static ConfigMgr instance;
 	return instance;
 }

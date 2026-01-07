@@ -22,7 +22,7 @@ public:
 	~ConfigMgr();
 	ConfigMgr(const ConfigMgr&) = delete;
 	ConfigMgr& operator = (const ConfigMgr& src) = delete;
-	static ConfigMgr& getInstance();
+	static ConfigMgr& Inst();
 	SectionInfo operator[](const std::string& section);
 
 private:

@@ -14,4 +14,6 @@ public:
 
 private:
 	MysqlMgr();
+	MysqlDao _dao;
 };
+

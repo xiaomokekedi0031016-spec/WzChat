@@ -50,7 +50,7 @@ void HttpConnection::HandleReq() {
 	if (_request.method() == http::verb::get) {
 		//tode...
 		PreParseGetParam();
-		bool success = LogicSystem::GetInstance().HandleGet(_get_url, shared_from_this());
+		bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
 		if (!success) {
 			_response.result(http::status::not_found);
 			_response.set(http::field::content_type, "text/plain");
@@ -66,7 +66,7 @@ void HttpConnection::HandleReq() {
 	if(_request.method() == http::verb::post){
 		//tode...
 		PreParseGetParam();	
-		bool success = LogicSystem::GetInstance().HandlePost(_request.target(), shared_from_this());
+		bool success = LogicSystem::GetInstance()->HandlePost(_request.target(), shared_from_this());
 		if (!success) {
 			_response.result(http::status::not_found);
 			_response.set(http::field::content_type, "text/plain");

@@ -7,8 +7,9 @@
 
 //刷新qss
 extern std::function<void(QWidget*)> repolish;
+extern std::function<QString(QString)> xorString;
 
-#endif // GLOBAL_H
+extern QString gate_url_prefix;
 
 //请求的枚举id
 enum ReqId
@@ -48,3 +49,42 @@ enum ErrorCodes{
     ERR_JSON = 1,//JSON解析失败
     ERR_NETWORK = 2,//网络错误
 };
+
+//注册信息错误提示枚举
+enum TipErr {
+    TIP_SUCCESS = 0,      // 成功，无错误
+    TIP_EMAIL_ERR = 1,    // 邮箱格式或邮箱相关错误
+    TIP_PWD_ERR = 2,      // 密码错误
+    TIP_CONFIRM_ERR = 3,  // 确认输入错误（可能是表单确认）
+    TIP_PWD_CONFIRM = 4,  // 密码与确认密码不匹配
+    TIP_VARIFY_ERR = 5,   // 验证码或验证错误
+    TIP_USER_ERR = 6      // 用户名或用户相关错误
+};
+
+//聊天消息文本
+const std::vector<QString>  strs ={"hello world !",
+                                   "nice to meet u",
+                                   "New year，new life",
+                                   "You have to love yourself",
+                                   "My love is written in the wind ever since the whole world is you"};
+
+//头像
+const std::vector<QString> heads = {
+    ":/res/head_1.jpg",
+    ":/res/head_2.jpg",
+    ":/res/head_3.jpg",
+    ":/res/head_4.jpg",
+    ":/res/head_5.jpg"
+};
+//昵称
+const std::vector<QString> names = {
+    "HanMeiMei",
+    "Lily",
+    "Ben",
+    "Androw",
+    "Max",
+    "Summer",
+    "Candy",
+    "Hunter"
+};
+#endif // GLOBAL_H

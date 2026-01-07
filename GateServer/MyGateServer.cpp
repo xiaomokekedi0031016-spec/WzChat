@@ -5,7 +5,7 @@
 
 int main()
 {
-	auto& config = ConfigMgr::getInstance();
+	auto& config = ConfigMgr::Inst();
 	std::string gate_server_port = config["GateServer"]["Port"];
 	unsigned short port = atoi(gate_server_port.c_str());
 	std::cout << "Gate Server Port: " << port << std::endl;

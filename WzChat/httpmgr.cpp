@@ -19,6 +19,7 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setHeader(QNetworkRequest::ContentLengthHeader, QByteArray::number(data.length()));
     auto self = shared_from_this();
+    //第二个参数data是body(http中post请求的body)
     QNetworkReply * reply = _manager.post(request, data);
     QObject::connect(reply, &QNetworkReply::finished,[reply, self, req_id, mod](){
         if(reply->error() != QNetworkReply::NoError){
