@@ -2,6 +2,7 @@
 #include "ConfigMgr.h"
 #include "const.h"
 #include "CServer.h"
+#include "RedisMgr.h"
 
 int main()
 {
@@ -26,9 +27,11 @@ int main()
 #endif
 		std::make_shared<CServer>(ioc, port)->Start();
 		ioc.run();
+		RedisMgr::GetInstance()->Close();
 	}
 	catch (std::exception const& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
+		RedisMgr::GetInstance()->Close();
 		return EXIT_FAILURE;
 	}
 	

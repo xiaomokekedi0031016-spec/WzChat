@@ -12,12 +12,12 @@
 #include <jdbc/cppconn/resultset.h>
 #include <jdbc/cppconn/statement.h>
 
-struct UserInfo {
-	int uid;//用户id
-	std::string name;
-	std::string email;
-	std::string icon;
-};
+//struct UserInfo {
+//	int uid;//用户id
+//	std::string name;
+//	std::string email;
+//	std::string icon;
+//};
 
 class SqlConnection {
 public:
@@ -131,6 +131,15 @@ private:
 	std::atomic<bool> b_stop_;
 	std::thread _check_thread;
 	std::atomic<int> _fail_count;
+};
+
+//
+struct UserInfo
+{
+	std::string name;
+	std::string pwd;
+	int uid;
+	std::string email;
 };
 
 class MysqlDao
