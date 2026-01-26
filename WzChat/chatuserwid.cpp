@@ -1,0 +1,59 @@
+#include "chatuserwid.h"
+#include "ui_chatuserwid.h"
+
+
+
+ChatUserWid::~ChatUserWid()
+{
+    delete ui;
+}
+
+
+ChatUserWid::ChatUserWid(QWidget *parent)
+    :ListItemBase(parent)
+    ,ui(new Ui::ChatUserWid)
+{
+    ui->setupUi(this);
+    SetItemType(ListItemType::CHAT_USER_ITEM);
+}
+
+
+
+QSize ChatUserWid::sizeHint() const
+{
+    return QSize(250, 70);
+}
+
+
+
+void ChatUserWid::SetInfo(std::shared_ptr<UserInfo> user_info)
+{
+    _user_info = user_info;
+    QPixmap pixmap(_user_info->_icon);
+    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->icon_lb->setScaledContents(true);
+    ui->user_name_lb->setText(_user_info->_name);
+    ui->user_chat_lb->setText(_user_info->_last_msg);
+}
+
+
+
+void ChatUserWid::SetInfo(std::shared_ptr<FriendInfo> friend_info)
+{
+
+}
+
+
+
+std::shared_ptr<UserInfo> ChatUserWid::GetUserInfo()
+{
+    return _user_info;
+}
+
+
+
+void ChatUserWid::updateLastMsg(std::vector<std::shared_ptr<TextChatData> > msgs)
+{
+
+}
+
