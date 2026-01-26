@@ -8,6 +8,7 @@
 RegisterDialog::RegisterDialog(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::RegisterDialog)
+    ,_countdown(5)
 {
     ui->setupUi(this);
     ui->pass_edit->setEchoMode(QLineEdit::Password);
@@ -18,7 +19,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
 
     connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reg_mod_finish,
             this, &RegisterDialog::slot_reg_mod_finish);
-
+    //初始化回调
     initHttpHandlers();
     ui->err_tip->clear();
     //当用户 完成编辑并离开输入框（例如按下回车或焦点离开该控件）时，会发出 editingFinished() 信号。
@@ -37,7 +38,45 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     connect(ui->varify_edit, &QLineEdit::editingFinished, this, [this](){
         checkVarifyValid();
     });
-}
+    //眼睛图标
+    ui->pass_visible->setCursor(Qt::PointingHandCursor);
+    ui->confirm_visible->setCursor(Qt::PointingHandCursor);
+    ui->pass_visible->SetState("unvisible","unvisible_hover","","visible",
+                               "visible_hover","");
+
+    ui->confirm_visible->SetState("unvisible","unvisible_hover","","visible",
+                                  "visible_hover","");
+    connect(ui->pass_visible, &ClickedLabel::clicked, this, [this]() {
+        auto state = ui->pass_visible->GetCurState();
+        if(state == ClickLbState::Normal){
+            ui->pass_edit->setEchoMode(QLineEdit::Password);
+        }else{
+            ui->pass_edit->setEchoMode(QLineEdit::Normal);
+        }
+    });
+
+    connect(ui->confirm_visible, &ClickedLabel::clicked, this, [this]() {
+        auto state = ui->confirm_visible->GetCurState();
+        if(state == ClickLbState::Normal){
+            ui->confirm_edit->setEchoMode(QLineEdit::Password);
+        }else{
+            ui->confirm_edit->setEchoMode(QLineEdit::Normal);
+        }
+    });
+    //ui->stackedWidget->setCurrentWidget(ui->page);
+    //定时器
+    _countdown_timer = new QTimer(this);
+    connect(_countdown_timer, &QTimer::timeout,[this](){
+        if(_countdown==0){
+            _countdown_timer->stop();
+            emit sigSwitchLogin();
+            return;
+        }
+        _countdown--;
+        auto str = QString("注册成功，%1 s后返回登录").arg(_countdown);
+        ui->tip_lb->setText(str);
+    });
+};
 
 void RegisterDialog::AddTipErr(TipErr te, QString tips)
 {
@@ -222,6 +261,8 @@ void RegisterDialog::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err)
     QJsonObject jsonObj = jsonDoc.object();
     //回调调用
     _handlers[id](jsonObj);
+
+    return;
 }
 
 void RegisterDialog::initHttpHandlers()
@@ -295,6 +336,22 @@ void RegisterDialog::on_sure_btn_clicked()
 
 void RegisterDialog::ChangeTipPage()
 {
+    _countdown_timer->stop();
+    ui->stackedWidget->setCurrentWidget(ui->page_2);
 
+    // 启动定时器，设置间隔为1000毫秒（1秒）
+    _countdown_timer->start(1000);
+}
+
+void RegisterDialog::on_cancel_btn_clicked()
+{
+    _countdown_timer->stop();
+    emit sigSwitchLogin();
+}
+
+void RegisterDialog::on_return_btn_clicked()
+{
+    _countdown_timer->stop();
+    emit sigSwitchLogin();
 }
 

@@ -24,6 +24,10 @@ private slots:
     void slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
     //点击注册界面的确定按钮槽函数(转到槽)
     void on_sure_btn_clicked();
+    //点击注册界面的返回登录按钮槽函数
+    void on_return_btn_clicked();
+    //点击注册界面的取消按钮槽函数
+    void on_cancel_btn_clicked();
 
 private:
     //显示错误信息
@@ -48,6 +52,9 @@ private:
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
     //错误输入 提示字符串
     QMap<TipErr, QString> _tip_errs;
+    //定时器(用于注册完毕界面)
+    QTimer* _countdown_timer;
+    int _countdown;
 
 signals:
     //切换到登录界面信号

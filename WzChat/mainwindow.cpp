@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "tcpmgr.h"
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -13,8 +14,15 @@ MainWindow::MainWindow(QWidget *parent) :
     _login_dlg->show();
     setCentralWidget(_login_dlg);
 
-    connect(_login_dlg, &LoginDialog::switchRegister, this, &MainWindow::SlotSwitchReg);
+    connect(_login_dlg, &LoginDialog::switchRegister,
+            this, &MainWindow::SlotSwitchReg);
+    connect(_login_dlg, &LoginDialog::switchReset,
+            this, &MainWindow::SlotSwitchReset);
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg,
+            this, &MainWindow::SlotSwitchChat);
 
+    //测试
+    //emit TcpMgr::GetInstance()->sig_swich_chatdlg();
 }
 
 MainWindow::~MainWindow()
@@ -28,7 +36,8 @@ void MainWindow::SlotSwitchReg()
     _reg_dlg->hide();
     _reg_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
     //连接注册界面返回登录信号
-    connect(_reg_dlg, &RegisterDialog::sigSwitchLogin, this, &MainWindow::SlotSwitchLogin);
+    connect(_reg_dlg, &RegisterDialog::sigSwitchLogin,
+            this, &MainWindow::SlotSwitchLogin);
     setCentralWidget(_reg_dlg);
     _login_dlg->hide();
     _reg_dlg->show();
@@ -43,7 +52,46 @@ void MainWindow::SlotSwitchLogin()
 
     _reg_dlg->hide();
     _login_dlg->show();
-    //连接登录界面注册信号
-    connect(_login_dlg, &LoginDialog::switchRegister, this, &MainWindow::SlotSwitchReg);
+    connect(_login_dlg, &LoginDialog::switchRegister,
+            this, &MainWindow::SlotSwitchReg);
+     connect(_login_dlg, &LoginDialog::switchReset,
+            this, &MainWindow::SlotSwitchReset);
+}
+
+void MainWindow::SlotSwitchReset()
+{
+    _reset_dlg = new ResetDialog(this);
+    _reset_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
+    setCentralWidget(_reset_dlg);
+    _login_dlg->hide();
+    _reset_dlg->show();
+    //注册返回登录信号和槽函数
+    connect(_reset_dlg, &ResetDialog::switchLogin,
+            this, &MainWindow::SlotSwitchLogin2);
+}
+
+void MainWindow::SlotSwitchLogin2()
+{
+    _login_dlg = new LoginDialog(this);
+    _login_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
+    setCentralWidget(_login_dlg);
+
+    _reset_dlg->hide();
+    _login_dlg->show();
+    connect(_login_dlg, &LoginDialog::switchReset,
+            this, &MainWindow::SlotSwitchReset);
+     connect(_login_dlg, &LoginDialog::switchRegister,
+            this, &MainWindow::SlotSwitchReg);
+}
+
+void MainWindow::SlotSwitchChat()
+{
+    _chat_dlg = new ChatDialog();
+    _chat_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
+    setCentralWidget(_chat_dlg);
+    _chat_dlg->show();
+    _login_dlg->hide();
+    this->setMinimumSize(QSize(1050,900));
+    this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 }
 

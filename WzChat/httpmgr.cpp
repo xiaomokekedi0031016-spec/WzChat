@@ -1,5 +1,6 @@
 #include "httpmgr.h"
 #include <QNetworkReply>
+#include <qDebug>
 
 HttpMgr::~HttpMgr()
 {
@@ -13,6 +14,7 @@ HttpMgr::HttpMgr()
 
 void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 {
+    //qDebug()<<"2222222222222222222222";
     //HTTP版本号、Host、User-Agent这些Qt会自动加
     QByteArray data = QJsonDocument(json).toJson();
     QNetworkRequest request(url);
@@ -40,6 +42,13 @@ void HttpMgr::slot_http_finish(ReqId id, QString res, ErrorCodes err, Modules mo
 {
     if(mod == Modules::REGISTERMOD){
         emit sig_reg_mod_finish(id, res, err);
+    }
+    if(mod == Modules::RESETMOD){
+        emit sig_reset_mod_finish(id, res, err);
+    }
+    if(mod == Modules::LOGINMOD){
+        //qDebug()<<"3333333333333333";
+        emit sig_login_mod_finish(id, res, err);
     }
 }
 

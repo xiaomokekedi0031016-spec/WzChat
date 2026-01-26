@@ -30,11 +30,14 @@ signals:
     void sig_http_finish(ReqId id, QString res, ErrorCodes err, Modules mod);
     //处理注册模块http相关请求响应完成的槽函数
     void sig_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
+    //处理重置模块http相关请求响应完成的槽函数
+    void sig_reset_mod_finish(ReqId id, QString res, ErrorCodes err);
+    //处理登录模块http相关请求响应完成的槽函数
+    void sig_login_mod_finish(ReqId id, QString res, ErrorCodes err);
 
 private slots:
-    //http发送完毕且接收响应后的槽函数
+    //注册模块http发送完毕且接收响应后的槽函数
     void slot_http_finish(ReqId id, QString res, ErrorCodes err, Modules mod);
-
 };
 
 #endif // HTTPMGR_H
