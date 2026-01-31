@@ -24,5 +24,5 @@ public:
 
     ~Singleton() {
         std::cout << "Singleton destructed" << std::endl;
-	}   
+    }
 };
