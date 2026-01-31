@@ -51,7 +51,7 @@ signals:
     void send();
 
 private:
-    QVector<MsgInfo> mMsgList;
+    QVector<MsgInfo> mMsgList;//临时数据
     QVector<MsgInfo> mGetMsgList;//最终数据
 };
 

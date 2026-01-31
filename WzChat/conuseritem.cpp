@@ -21,18 +21,18 @@ QSize ConUserItem::sizeHint() const
     return QSize(250, 70); // 返回自定义的尺寸
 }
 
-// void ConUserItem::SetInfo(std::shared_ptr<AuthInfo> auth_info)
-// {
-//     _info = std::make_shared<UserInfo>(auth_info);
-//     // 加载图片
-//     QPixmap pixmap(_info->_icon);
+void ConUserItem::SetInfo(std::shared_ptr<AuthInfo> auth_info)
+{
+    _info = std::make_shared<UserInfo>(auth_info);
+    // 加载图片
+    QPixmap pixmap(_info->_icon);
 
-//     // 设置图片自动缩放
-//     ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-//     ui->icon_lb->setScaledContents(true);
+    // 设置图片自动缩放
+    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->icon_lb->setScaledContents(true);
 
-//     ui->user_name_lb->setText(_info->_name);
-// }
+    ui->user_name_lb->setText(_info->_name);
+}
 
 void ConUserItem::SetInfo(int uid, QString name, QString icon)
 {

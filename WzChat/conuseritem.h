@@ -19,7 +19,8 @@ public:
     ~ConUserItem();
     //返回默认的大小
     QSize sizeHint() const override;
-    //void SetInfo(std::shared_ptr<AuthInfo> auth_info);
+    //设置信息
+    void SetInfo(std::shared_ptr<AuthInfo> auth_info);
     //void SetInfo(std::shared_ptr<AuthRsp> auth_rsp);
     void SetInfo(int uid, QString name, QString icon);
     void ShowRedPoint(bool show = false);

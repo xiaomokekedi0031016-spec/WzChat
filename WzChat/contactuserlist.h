@@ -19,9 +19,12 @@ private:
     void addContactUserList();
 
 public slots:
+    //item点击槽函数
     void slot_item_clicked(QListWidgetItem *item);
-    //     void slot_add_auth_firend(std::shared_ptr<AuthInfo>);
-    //     void slot_auth_rsp(std::shared_ptr<AuthRsp>);
+    //对于对端添加到联系人列表
+    void slot_add_auth_firend(std::shared_ptr<AuthInfo>);
+    //对于本端添加到联系人列表
+    void slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp);
 signals:
     //加载更多联系人
     void sig_loading_contact_user();

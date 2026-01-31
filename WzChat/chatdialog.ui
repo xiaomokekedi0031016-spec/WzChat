@@ -316,12 +316,6 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>StateWidget</class>
-   <extends>QWidget</extends>
-   <header location="global">statewidget.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
    <class>SearchList</class>
    <extends>QListWidget</extends>
    <header>searchlist.h</header>
@@ -341,6 +335,12 @@
    <class>FriendInfoPage</class>
    <extends>QWidget</extends>
    <header location="global">friendinfopage.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>StateWidget</class>
+   <extends>QWidget</extends>
+   <header location="global">statewidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

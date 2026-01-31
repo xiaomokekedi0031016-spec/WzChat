@@ -47,7 +47,14 @@ signals:
     void sig_swich_chatdlg();
     //连接搜索条目
     void sig_user_search(std::shared_ptr<SearchInfo> si);
-
+    //添加好友认证信号
+    void sig_friend_apply(std::shared_ptr<AddFriendApply>);
+    //认证好友回复信号
+    void sig_auth_rsp(std::shared_ptr<AuthRsp>);
+    //同意认证后的信号
+    void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
+    //文本消息信号
+    void sig_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
 };
 
 #endif // TCPMGR_H

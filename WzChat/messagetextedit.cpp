@@ -25,10 +25,11 @@ MessageTextEdit::~MessageTextEdit()
 QVector<MsgInfo> MessageTextEdit::getMsgList()
 {
     mGetMsgList.clear();
+    //qt在执行toPlainText时候会把图片转化为一个？占位符
     QString doc = this->document()->toPlainText();//获取纯文本形式的数据
     QString text="";//存储文本信息
     int indexUrl = 0;//遍历图片消息
-    int count = mMsgList.size();
+    int count = mMsgList.size();//mMsgList存储的是整条数据，例如一个图片的url
     for(int index = 0; index < doc.size(); ++index){
         if(doc[index] == QChar::ObjectReplacementCharacter){
             //先处理图片前的文字

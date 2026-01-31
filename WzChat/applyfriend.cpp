@@ -3,6 +3,9 @@
 #include "ui_applyfriend.h"
 #include "global.h"
 #include "usermgr.h"
+#include "tcpmgr.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QScrollBar>
 
 ApplyFriend::ApplyFriend(QWidget *parent)
@@ -209,14 +212,13 @@ bool ApplyFriend::eventFilter(QObject *obj, QEvent *event)
 
 void ApplyFriend::SetSearchInfo(std::shared_ptr<SearchInfo> si)
 {
-    // _si = si;
-    // auto bakname = si->_name;
-    // auto applyname = UserMgr::GetInstance()->GetName();
-    // ui->name_ed->setText(applyname);
-    // ui->back_ed->setText(bakname);
+    //B
+    _si = si;
+    auto applyname = UserMgr::GetInstance()->GetName();
+    auto bakname = si->_name;
+    ui->name_ed->setText(applyname);
+    ui->back_ed->setText(bakname);
 }
-
-
 
 void ApplyFriend::addLabel(QString name)
 {
@@ -258,7 +260,6 @@ void ApplyFriend::addLabel(QString name)
     }
 }
 
-
 //因为删除了一个 label 之后，其它 label 的位置全部都“失效”了，必须重新计算并重新布局
 void ApplyFriend::resetLabels()
 {
@@ -291,7 +292,6 @@ void ApplyFriend::resetLabels()
     }
 }
 
-
 void ApplyFriend::SlotRemoveFriendLabel(QString name)
 {
     _label_point.setX(2);
@@ -323,8 +323,6 @@ void ApplyFriend::SlotRemoveFriendLabel(QString name)
 
     find_add.value()->ResetNormalState();
 }
-
-
 
 void ApplyFriend::SlotLabelEnter()
 {
@@ -472,36 +470,34 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
 //添加好友
 void ApplyFriend::SlotApplySure()
 {
-    // qDebug()<<"Slot Apply Sure called" ;
-    // //发送请求逻辑
-    // QJsonObject jsonObj;
-    // auto uid = UserMgr::GetInstance()->GetUid();
-    // jsonObj["uid"] = uid;
-    // auto name = ui->name_ed->text();
-    // if(name.isEmpty()){
-    //     name = ui->name_ed->placeholderText();
-    // }
-    // //好友昵称
-    // jsonObj["applyname"] = name;
+    qDebug()<<"Slot Apply Sure called";
+    //发送请求逻辑
+    QJsonObject jsonObj;
+    auto uid = UserMgr::GetInstance()->GetUid();
+    //申请添加好友人的uidA   >>   A添加好友B
+    jsonObj["uid"] = uid;
+    auto name = ui->name_ed->text();
+    if(name.isEmpty()){
+        //默认显示
+        name = ui->name_ed->placeholderText();
+    }
+    //发送添加好友申请人的昵称
+    jsonObj["applyname"] = name;
+    //被添加好友的备注名
+    auto bakname = ui->back_ed->text();
+    if(bakname.isEmpty()){
+        bakname = ui->back_ed->placeholderText();
+    }
+    jsonObj["bakname"] = bakname;
+    //B 被添加好友的uid
+    jsonObj["touid"] = _si->_uid;
 
-    // auto bakname = ui->back_ed->text();
-    // if(bakname.isEmpty()){
-    //     bakname = ui->back_ed->placeholderText();
-    // }
-
-    // //备注名
-    // jsonObj["bakname"] = bakname;
-    // //目标用户id
-    // jsonObj["touid"] = _si->_uid;
-
-    // QJsonDocument doc(jsonObj);
-    // QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
-
-    // //发送tcp请求给chat server
-    // //添加好友申请
-    // emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_ADD_FRIEND_REQ, jsonData);
-    // this->hide();
-    // deleteLater();
+    QJsonDocument doc(jsonObj);
+    QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
+    //发送tcp给服务器
+    emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_ADD_FRIEND_REQ, jsonData);
+    this->hide();
+    deleteLater();
 }
 
 

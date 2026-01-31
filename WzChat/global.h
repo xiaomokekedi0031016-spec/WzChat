@@ -140,4 +140,7 @@ const std::vector<QString> names = {
     "Candy",
     "Hunter"
 };
+
+//一页展示的好友数量
+const int CHAT_COUNT_PER_PAGE = 13;
 #endif // GLOBAL_H

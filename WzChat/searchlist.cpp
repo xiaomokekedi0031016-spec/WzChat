@@ -75,7 +75,7 @@ void SearchList::addTipItem()
 
 void SearchList::slot_item_clicked(QListWidgetItem *item)
 {
-    qDebug()<<"111111111111111";
+    qDebug()<<"111111111111111111111111";
     QWidget *widget = this->itemWidget(item); //获取自定义widget对象
     if(!widget){
         qDebug()<< "slot item clicked widget is nullptr";
@@ -114,12 +114,13 @@ void SearchList::slot_item_clicked(QListWidgetItem *item)
             return;
         }
 
-        //waitPending(true);
+        waitPending(true);
 
         auto search_edit = dynamic_cast<CustomizeEdit*>(_search_edit);
         auto uid_str = search_edit->text();
         QJsonObject jsonObj;
-        jsonObj["uid"] = uid_str;
+        //被添加好友人的uid   B
+        jsonObj["uid"] = uid_str;//将要搜索的人的uid发送给服务器
         QJsonDocument doc(jsonObj);
         QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
         //chat server发送搜索请求tcp
@@ -172,9 +173,15 @@ void SearchList::slot_user_search(std::shared_ptr<SearchInfo> si)
         if(si->_uid == self_uid){
             return;
         }
+        bool bExist = UserMgr::GetInstance()->CheckFriendById(si->_uid);
+        if(bExist){
+            emit sig_jump_chat_item(si);
+            return;
+        }
         //...todo
         _find_dlg = std::make_shared<FindSuccessDlg>(this);
-        std::dynamic_pointer_cast<FindSuccessDlg>(_find_dlg)->SetSearchInfo(si);
+        //B
+        (std::dynamic_pointer_cast<FindSuccessDlg>(_find_dlg))->SetSearchInfo(si);
     }
 
     _find_dlg->show();

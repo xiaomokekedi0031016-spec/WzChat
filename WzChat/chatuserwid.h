@@ -21,6 +21,7 @@ public:
     void SetInfo(std::shared_ptr<FriendInfo> friend_info);
     //void ShowRedPoint(bool bshow);
     std::shared_ptr<UserInfo> GetUserInfo();
+    //更新最后一条信息(对方的)
     void updateLastMsg(std::vector<std::shared_ptr<TextChatData>> msgs);
 private:
     Ui::ChatUserWid *ui;

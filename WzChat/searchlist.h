@@ -9,6 +9,7 @@
 
 class SearchList : public QListWidget
 {
+    Q_OBJECT
 public:
     SearchList(QWidget *parent = nullptr);
     //设置搜索窗口用于获取文字
@@ -17,6 +18,9 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+
+signals:
+    void sig_jump_chat_item(std::shared_ptr<SearchInfo> si);
 
 private slots:
     //点击条目的槽函数(查找uid/name)

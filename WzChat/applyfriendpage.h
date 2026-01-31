@@ -27,9 +27,11 @@ private:
     //加载好友申请列表
     void loadApplyList();
     Ui::ApplyFriendPage *ui;
+    //存储未认证的好友申请项
     std::unordered_map<int, ApplyFriendItem*> _unauth_items;
 public slots:
-    //void slot_auth_rsp(std::shared_ptr<AuthRsp>);
+    //更新好友申请列表(认证过了)
+    void slot_auth_rsp(std::shared_ptr<AuthRsp>);
 signals:
     void sig_show_search(bool);
 };
