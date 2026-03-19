@@ -11,6 +11,7 @@ class LogicSystem : public Singleton<LogicSystem>
 public:
 	~LogicSystem();
 	void PostMsgToQue(shared_ptr <LogicNode> msg);
+	void SetServer(std::shared_ptr<CServer> pserver);
 
 private:
 	LogicSystem();
@@ -49,4 +50,5 @@ private:
 	std::mutex _mutex;//队列锁
 	std::condition_variable _consume;//条件变量	
 	std::map<short, FunCallBack> _fun_callbacks;//消息id到处理函数的映射
+	std::shared_ptr<CServer> _p_server;
 };

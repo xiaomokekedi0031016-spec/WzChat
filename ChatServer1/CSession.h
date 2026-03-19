@@ -35,12 +35,16 @@ public:
 	void Send(std::string msg, short msgid);
 	std::shared_ptr<CSession> SharedSelf();
 
+	//通知用户离线，踢人操作
+	void NotifyOffline(int uid);
+
 private:
 	void asyncReadFull(std::size_t maxLength, 
 		std::function<void(const boost::system::error_code&, std::size_t)> handler);//读满指定长度的数据
 	void asyncReadLen(std::size_t read_len, std::size_t total_len,
 		std::function<void(const boost::system::error_code&, std::size_t)> handler);//读指定长度的数据
 	void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);//发送完成回调
+
 
 private:
 	tcp::socket _socket;
