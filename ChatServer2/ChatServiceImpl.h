@@ -35,7 +35,10 @@ public:
 		const AuthFriendReq* request, AuthFriendRsp* response) override;
 	Status NotifyTextChatMsg(::grpc::ServerContext* context,
 		const TextChatMsgReq* request, TextChatMsgRsp* response) override;
-
+	//接受rpc踢人请求
+	Status NotifyKickUser(::grpc::ServerContext* context,
+		const KickUserReq* request, KickUserRsp* response) override;
+	void RegisterServer(std::shared_ptr<CServer> pServer);
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 private:
 	std::shared_ptr<CServer> _p_server;

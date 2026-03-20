@@ -1,4 +1,4 @@
-ï»¿#include "LogicSystem.h"
+#include "LogicSystem.h"
 #include <csignal>
 #include <thread>
 #include <mutex>
@@ -15,45 +15,50 @@ std::mutex mutex_quit;
 
 int main()
 {
+    cout << "ChatServer2 Start ***********" << endl;
+    auto& cfg = ConfigMgr::Inst();
+    auto server_name = cfg["SelfServer"]["Name"];
     try {
-
-        cout << "ChatServer2 Start ***********" << endl;
-        auto& cfg = ConfigMgr::Inst();
-        auto server_name = cfg["SelfServer"]["Name"];
-        //å°†ç™»å½•æ•°è®¾è®¡ä¸º0
+        auto pool = AsioIOServicePool::GetInstance();
+        //½«µÇÂ¼ÊıÉè¼ÆÎª0
         RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, "0");
-        //å®šä¹‰ä¸€ä¸ªGrpcServer
+        Defer derfer([server_name]() {
+            RedisMgr::GetInstance()->HDel(LOGIN_COUNT, server_name);
+            RedisMgr::GetInstance()->Close();
+            });
+        boost::asio::io_context io_context;
+        auto port_str = cfg["SelfServer"]["Port"];
+        auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));
+
+        //¶¨ÒåÒ»¸öGrpcServer
         std::string server_address(cfg["SelfServer"]["Host"] + ":" + cfg["SelfServer"]["RPCPort"]);
         ChatServiceImpl service;
         grpc::ServerBuilder builder;
-        // ç›‘å¬ç«¯å£å’Œæ·»åŠ æœåŠ¡
+        // ¼àÌı¶Ë¿ÚºÍÌí¼Ó·şÎñ
         builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
         builder.RegisterService(&service);
-        //service.RegisterServer(pointer_server);
-        // æ„å»ºå¹¶å¯åŠ¨gRPCæœåŠ¡å™¨
+        service.RegisterServer(pointer_server);
+
+        // ¹¹½¨²¢Æô¶¯gRPC·şÎñÆ÷
         std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
         std::cout << "RPC Server listening on " << server_address << std::endl;
 
-        //å•ç‹¬å¯åŠ¨ä¸€ä¸ªçº¿ç¨‹å¤„ç†grpcæœåŠ¡
+        //µ¥¶ÀÆô¶¯Ò»¸öÏß³Ì´¦Àígrpc·şÎñ
         std::thread  grpc_server_thread([&server]() {
             server->Wait();
             });
 
-
-        auto pool = AsioIOServicePool::GetInstance();
-        boost::asio::io_context io_context;
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&io_context, pool, &server](auto, auto) {
             io_context.stop();
             pool->Stop();
             server->Shutdown();
             });
-        auto port_str = cfg["SelfServer"]["Port"];
-        CServer s(io_context, atoi(port_str.c_str()));
+
+        //½«Cserver×¢²á¸øÂß¼­Àà·½±ãÒÔºóÇå³ıÁ¬½Ó
+        LogicSystem::GetInstance()->SetServer(pointer_server);
         io_context.run();
 
-        RedisMgr::GetInstance()->HDel(LOGIN_COUNT, server_name);
-        RedisMgr::GetInstance()->Close();
         grpc_server_thread.join();
     }
     catch (std::exception& e) {

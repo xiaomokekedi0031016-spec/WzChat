@@ -48,6 +48,14 @@ Status StatusServiceImpl::GetChatServer(ServerContext* context, const GetChatSer
 ChatServer StatusServiceImpl::getChatServer() {
 	std::lock_guard<std::mutex> guard(_server_mtx);
 	auto minServer = _servers.begin()->second;
+	//设计分布式锁
+	auto lock_key = LOCK_COUNT;
+	auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
+	//利用defer解锁
+	Defer defer2([this, identifier, lock_key]() {
+		RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
+		});
+
 	//获取服务器对应的连接数
 	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
 	if (count_str.empty()) {

@@ -81,3 +81,8 @@ enum MSG_IDS {
 	ID_HEART_BEAT_REQ = 1023,      //心跳请求
 	ID_HEARTBEAT_RSP = 1024,       //心跳回复
 };
+
+//分布式锁的持有时间
+#define LOCK_TIME_OUT 10
+//分布式锁的重试时间
+#define ACQUIRE_TIME_OUT 5

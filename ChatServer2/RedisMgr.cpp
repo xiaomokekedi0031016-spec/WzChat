@@ -1,5 +1,6 @@
 #include "RedisMgr.h"
 #include "ConfigMgr.h"
+#include "DistLock.h"
 
 RedisMgr::RedisMgr() {
 	auto& gCfgMgr = ConfigMgr::Inst();
@@ -360,4 +361,37 @@ bool RedisMgr::ExistsKey(const std::string& key)
 void RedisMgr::Close()
 {
 	_con_pool->Close();
+}
+
+std::string RedisMgr::acquireLock(const std::string& lockName,
+	int lockTimeout, int acquireTimeout) {
+
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr) {
+		return "";
+	}
+
+	Defer defer([&connect, this]() {
+		_con_pool->returnConnection(connect);
+		});
+
+	return DistLock::Inst().acquireLock(connect, lockName, lockTimeout, acquireTimeout);
+}
+
+bool RedisMgr::releaseLock(const std::string& lockName,
+	const std::string& identifier) {
+	if (identifier.empty()) {
+		return true;
+	}
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr) {
+		return false;
+	}
+
+
+	Defer defer([&connect, this]() {
+		_con_pool->returnConnection(connect);
+		});
+
+	return DistLock::Inst().releaseLock(connect, lockName, identifier);
 }

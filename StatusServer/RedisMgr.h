@@ -119,6 +119,15 @@ public:
 	bool Del(const std::string& key);
 	bool ExistsKey(const std::string& key);
 	void Close();
+
+	//分布式锁
+//lockName:锁的名字，lockTimeout:锁的过期时间，acquireTimeout:获取锁的超时时间
+//获取一个分布式锁，返回锁的唯一标识
+	std::string acquireLock(const std::string& lockName,
+		int lockTimeout, int acquireTimeout);
+
+	bool releaseLock(const std::string& lockName,
+		const std::string& identifier);
 private:
 	RedisMgr();
 

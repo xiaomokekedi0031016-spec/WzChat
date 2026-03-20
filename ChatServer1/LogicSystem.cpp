@@ -167,6 +167,9 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, const short& m
 		}
 		else {
 			//如果不是本服务器，则通知grpc通知其他服务器踢掉
+			KickUserReq kick_req;
+			kick_req.set_uid(uid);
+			ChatGrpcClient::GetInstance()->NotifyKickUser(uid_ip_value, kick_req);
 		}
 	}
 

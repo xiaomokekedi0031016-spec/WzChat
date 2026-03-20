@@ -31,9 +31,17 @@ void UserMgr::SetUserSession(int uid, std::shared_ptr<CSession> session)
 
 void UserMgr::RmvUserSession(int uid, std::string session_id)
 {
-	auto uid_str = std::to_string(uid);
-	{
-		std::lock_guard<std::mutex> lock(_session_mtx);
-		_uid_to_session.erase(uid);
-	}
+    {
+        std::lock_guard<std::mutex> lock(_session_mtx);
+        auto iter = _uid_to_session.find(uid);
+        if (iter != _uid_to_session.end()) {
+            return;
+        }
+        auto session_id_ = iter->second->GetSessionId();
+        //不相等说明是其他地方登录了
+        if (session_id_ != session_id) {
+            return;
+        }
+        _uid_to_session.erase(uid);
+    }
 }

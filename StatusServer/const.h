@@ -66,3 +66,8 @@ private:
 #define USER_BASE_INFO "ubaseinfo_"
 #define LOGIN_COUNT  "logincount"//获取服务器对应的连接数
 #define LOCK_COUNT "lockcount"
+
+//分布式锁的持有时间
+#define LOCK_TIME_OUT 10
+//分布式锁的重试时间
+#define ACQUIRE_TIME_OUT 5

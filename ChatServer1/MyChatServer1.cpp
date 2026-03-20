@@ -15,13 +15,20 @@ std::mutex mutex_quit;
 
 int main()
 {
+    cout << "ChatServer1 Start ***********" << endl;
+    auto& cfg = ConfigMgr::Inst();
+    auto server_name = cfg["SelfServer"]["Name"];
     try {
-
-        cout << "ChatServer1 Start ***********" << endl;
-        auto& cfg = ConfigMgr::Inst();
-        auto server_name = cfg["SelfServer"]["Name"];
+        auto pool = AsioIOServicePool::GetInstance();
         //将登录数设计为0
         RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, "0");
+        Defer derfer([server_name]() {
+            RedisMgr::GetInstance()->HDel(LOGIN_COUNT, server_name);
+            RedisMgr::GetInstance()->Close();
+            });
+        boost::asio::io_context io_context;
+        auto port_str = cfg["SelfServer"]["Port"];
+        auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));
 
         //定义一个GrpcServer
         std::string server_address(cfg["SelfServer"]["Host"] + ":" + cfg["SelfServer"]["RPCPort"]);
@@ -30,7 +37,8 @@ int main()
         // 监听端口和添加服务
         builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
         builder.RegisterService(&service);
-        //service.RegisterServer(pointer_server);
+        service.RegisterServer(pointer_server);
+
         // 构建并启动gRPC服务器
         std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
         std::cout << "RPC Server listening on " << server_address << std::endl;
@@ -40,25 +48,17 @@ int main()
             server->Wait();
             });
 
-
-
-        auto pool = AsioIOServicePool::GetInstance();
-        boost::asio::io_context io_context;
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&io_context, pool, &server](auto, auto) {
             io_context.stop();
             pool->Stop();
             server->Shutdown();
             });
-        auto port_str = cfg["SelfServer"]["Port"];
-        CServer s(io_context, atoi(port_str.c_str()));
-        auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));
+
         //将Cserver注册给逻辑类方便以后清除连接
         LogicSystem::GetInstance()->SetServer(pointer_server);
         io_context.run();
 
-        RedisMgr::GetInstance()->HDel(LOGIN_COUNT, server_name);
-        RedisMgr::GetInstance()->Close();
         grpc_server_thread.join();
     }
     catch (std::exception& e) {

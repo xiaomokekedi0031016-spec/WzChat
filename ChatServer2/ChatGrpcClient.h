@@ -108,6 +108,7 @@ public:
 	AddFriendRsp NotifyAddFriend(std::string server_ip, const AddFriendReq& req);
 	AuthFriendRsp NotifyAuthFriend(std::string server_ip, const AuthFriendReq& req);
 	TextChatMsgRsp NotifyTextChatMsg(std::string server_ip, const TextChatMsgReq& req, const Json::Value& rtvalue);
+	KickUserRsp NotifyKickUser(std::string server_ip, const KickUserReq& req);
 
 private:
 	ChatGrpcClient();
