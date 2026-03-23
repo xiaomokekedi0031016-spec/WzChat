@@ -29,6 +29,8 @@ private:
 	void AuthFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 	//聊天消息回包
 	void DealChatTextMsg(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
+	//心跳包处理
+	void HeartBeatHandler(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 
 	//存储(获取)用户信息
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
@@ -42,6 +44,7 @@ private:
 	bool GetFriendApplyInfo(int to_uid, std::vector<std::shared_ptr<ApplyInfo>>& list);
 	//获取好友列表
 	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_list);
+
 
 private:
 	bool _b_stop;//服务器关闭true

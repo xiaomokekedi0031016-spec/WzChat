@@ -56,6 +56,8 @@ void LogicSystem::RegisterCallBacks() {
 		placeholders::_1, placeholders::_2, placeholders::_3);
 	_fun_callbacks[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
+	_fun_callbacks[ID_HEART_BEAT_REQ] = std::bind(&LogicSystem::HeartBeatHandler, this,
+		placeholders::_1, placeholders::_2, placeholders::_3);
 }
 
 void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data) {
@@ -162,6 +164,8 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, const short& m
 			if (old_session) {
 				old_session->NotifyOffline(uid);
 				//清除旧的连接
+				//这里没有Close旧连接，是因为发送完踢人消息后，旧连接会自己关闭的，触发async_read的错误处理，进而清除session
+				//如果这里Close了，也就是服务器主动把连接给切断，会有大量的time_wait，影响服务器性能
 				_p_server->ClearSession(old_session->GetSessionId());
 			}
 		}
@@ -428,6 +432,16 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, const short
 	ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue);
 }
 
+void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data) {
+	Json::Reader reader;
+	Json::Value root;
+	reader.parse(msg_data, root);
+	auto uid = root["fromuid"].asInt();
+	std::cout << "receive heart beat msg, uid is " << uid << std::endl;
+	Json::Value rtvalue;
+	rtvalue["error"] = ErrorCodes::Success;
+	session->Send(rtvalue.toStyledString(), ID_HEARTBEAT_RSP);
+}
 void LogicSystem::DealMsg() {
 	for (;;) {
 		std::unique_lock<std::mutex> unique_lk(_mutex);

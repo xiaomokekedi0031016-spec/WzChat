@@ -1,12 +1,17 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "UserMgr.h"
+#include "RedisMgr.h"
 
 CServer::CServer(boost::asio::io_context& io_context, short port) 
-	:_io_context(io_context), _port(port),
-	_acceptor(io_context, tcp::endpoint(tcp::v4(), port))
+	:_io_context(io_context), _port(port)
+	,_acceptor(io_context, tcp::endpoint(tcp::v4(), port))
+	, _timer(io_context, std::chrono::seconds(60))
 {
 	cout << "Server start success, listen on port : " << _port << endl;
+	_timer.async_wait([this](boost::system::error_code e) {
+		on_timer(e);
+		});
 	StartAccept();
 }
 
@@ -45,4 +50,64 @@ void CServer::ClearSession(std::string session_id) {
 		std::lock_guard<std::mutex> lock(_mutex);
 		_sessions.erase(session_id);
 	}
+}
+
+void CServer::on_timer(const boost::system::error_code& e) {
+	//lock_guard<std::mutex> lock(_mutex);
+	//time_t now = time(nullptr);
+	//for(auto iter = _sessions.begin(); iter != _sessions.end();) {
+	//	auto b_expired = iter->second->IsHeartbeatExpired(now);
+	//	if (b_expired) {
+	//		iter->second->Close();
+	//		iter = _sessions.erase(iter);
+	//		auto uid_str = iter->second->GetUserId();
+	//		auto lock_key = LOCK_PREFIX + uid_str;
+	//		auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
+	//		Defer defer([identifier, lock_key]() {
+	//			RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
+	//			});
+	//	}
+	//	else {
+	//		iter++;
+	//	}
+	//}
+	std::vector<std::shared_ptr<CSession>> _expired_sessions;
+	int session_count = 0;
+	//此处加锁遍历session
+	{
+		lock_guard<mutex> lock(_mutex);
+		time_t now = std::time(nullptr);
+		for (auto iter = _sessions.begin(); iter != _sessions.end(); iter++) {
+			auto b_expired = iter->second->IsHeartbeatExpired(now);
+			if (b_expired) {
+				//关闭socket, 其实这里也会触发async_read的错误处理
+				iter->second->Close();
+				//收集过期信息
+				_expired_sessions.push_back(iter->second);
+				continue;
+			}
+			session_count++;
+		}
+	}
+	//设置session数量 todo..
+	
+	//处理过期session, 单独提出，防止死锁
+	for (auto& session : _expired_sessions) {
+		session->DealExceptionSession();
+	}
+	//再次设置，下一个60s检测
+	_timer.expires_after(std::chrono::seconds(60));
+	_timer.async_wait([this](boost::system::error_code ec) {
+		on_timer(ec);
+		});
+}
+
+bool CServer::CheckValid(std::string uuid)
+{
+	lock_guard<mutex> lock(_mutex);
+	auto it = _sessions.find(uuid);
+	if (it != _sessions.end()) {
+		return true;
+	}
+	return false;
 }

@@ -44,7 +44,7 @@ int main()
         std::cout << "RPC Server listening on " << server_address << std::endl;
 
         //单独启动一个线程处理grpc服务
-        std::thread  grpc_server_thread([&server]() {
+        std::thread grpc_server_thread([&server]() {
             server->Wait();
             });
 

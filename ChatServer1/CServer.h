@@ -13,6 +13,9 @@ public:
 	CServer(boost::asio::io_context& io_context, short port);
 	~CServer();
 	void ClearSession(std::string session_id);
+	//定时器回调函数，清理过期session
+	void on_timer(const boost::system::error_code& e);
+	bool CheckValid(std::string);
 
 private:
 	void HandleAccept(std::shared_ptr<CSession> new_session, const boost::system::error_code& error);
@@ -25,4 +28,5 @@ private:
 	//用于管理所有客户端连接的容器(session_id, session)
 	std::map<std::string, std::shared_ptr<CSession>> _sessions;
 	std::mutex _mutex;
+	boost::asio::steady_timer _timer;//定时器，定时清理过期session	  
 };
