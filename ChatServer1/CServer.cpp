@@ -9,15 +9,21 @@ CServer::CServer(boost::asio::io_context& io_context, short port)
 	,_acceptor(io_context, tcp::endpoint(tcp::v4(), port))
 	, _timer(io_context, std::chrono::seconds(60))
 {
+	//为什么要把share_from_this()放在构造函数外面调用?
+	//在构造函数内部调用shared_from_this()会导致std::bad_weak_ptr异常，因为对象还没有完全构造完成，shared_ptr还没有被创建。
 	cout << "Server start success, listen on port : " << _port << endl;
-	_timer.async_wait([this](boost::system::error_code e) {
-		on_timer(e);
-		});
 	StartAccept();
 }
 
+//为什么析构函数中的_timer.cancel()要放在析构函数外面调用?
+//析构函数中的_timer.cancel()放在析构函数外面调用是为了避免在对象已经开始销毁时调用cancel()，这可能会导致访问已经被销毁的对象，从而引发未定义行为。通过在析构函数外部调用StopTimer()，可以确保在对象完全销毁之前取消定时器，避免潜在的访问野指针问题。
+//一句话：在自己销毁的过程中，触发了访问自己的回调
+
 CServer::~CServer(){
 	cout << "Server destruct listen on port : " << _port << endl;
+	//_timer.cancel();//cancel()只能取消尚未完成的异步操作，并会以operation_aborted触发一次回调；但对于已经开始或即将执行的handler，无法中断。
+	//尚未完成的异步操作：已经注册了，但 handler 还没有被调用 >> cancel() 并不是立即停止执行 handler，它只是标记操作被取消，io_context 会在合适的时机调用 handler。
+	//即将执行状态有点模糊，它通常是指操作已经在队列中，但线程调度很快就会调用 handler。
 }
 
 void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::system::error_code& error) {
@@ -72,6 +78,10 @@ void CServer::on_timer(const boost::system::error_code& e) {
 	//		iter++;
 	//	}
 	//}
+	if (e) {
+		std::cout << "timer error: " << e.message() << std::endl;
+		return;
+	}
 	std::vector<std::shared_ptr<CSession>> _expired_sessions;
 	int session_count = 0;
 	//此处加锁遍历session
@@ -115,4 +125,20 @@ bool CServer::CheckValid(std::string uuid)
 		return true;
 	}
 	return false;
+}
+
+void CServer::StartTimer()
+{
+	//为什么这里使用shared_from_this()?
+	// 执行顺序有可能是：调用CServer析构函数->调用timer的cancel函数->触发timer回调函数on_timer->on_timer中访问this指针，导致访问野指针崩溃
+	//启动定时器
+	auto self(shared_from_this());
+	_timer.async_wait([self](boost::system::error_code ec) {
+		self->on_timer(ec);
+		});
+}
+
+void CServer::StopTimer()
+{
+	_timer.cancel();
 }

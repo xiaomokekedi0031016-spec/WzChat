@@ -16,6 +16,8 @@ public:
 	//定时器回调函数，清理过期session
 	void on_timer(const boost::system::error_code& e);
 	bool CheckValid(std::string);
+	void StartTimer();
+	void StopTimer();
 
 private:
 	void HandleAccept(std::shared_ptr<CSession> new_session, const boost::system::error_code& error);
