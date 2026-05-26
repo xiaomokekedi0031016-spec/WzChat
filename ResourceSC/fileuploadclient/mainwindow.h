@@ -28,6 +28,8 @@ private slots:
 
     void slot_pause_continue();
 
+    void on_pauseBtn_clicked();
+
 private:
     enum UploadState {
         INIT,

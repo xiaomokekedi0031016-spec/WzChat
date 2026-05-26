@@ -24,6 +24,7 @@ public:
 	int _total_size;
 	int _trans_size;
 	std::string _file_path_str;
+	int _expected_seq; // 【新增】期望下一个包序号
 };
 
 typedef  function<void(shared_ptr<CSession>, const short &msg_id, const string &msg_data)> FunCallBack;

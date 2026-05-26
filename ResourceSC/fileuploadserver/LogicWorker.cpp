@@ -73,6 +73,7 @@ void LogicWorker::RegisterCallBacks()
 			rtvalue["data"] = data;
 	};
 
+	/*
 	_fun_callbacks[ID_UPLOAD_FILE_REQ] = [this](shared_ptr<CSession> session, const short& msg_id,
 		const string& msg_data) {
 			Json::Reader reader;
@@ -135,6 +136,71 @@ void LogicWorker::RegisterCallBacks()
 			rtvalue["last"] = last;
 			rtvalue["md5"] = md5;
 	};
+	*/
+
+	_fun_callbacks[ID_UPLOAD_FILE_REQ] = [this](shared_ptr<CSession> session, const short& msg_id,
+		const string& msg_data) {
+			Json::Reader reader;
+			Json::Value root;
+			reader.parse(msg_data, root);
+
+			auto md5 = root["md5"].asString();
+			auto seq = root["seq"].asInt();
+			auto name = root["name"].asString();
+			auto total_size = root["total_size"].asInt();
+			auto trans_size = root["trans_size"].asInt();
+			auto last = root["last"].asInt();
+			auto file_data = root["data"].asString();
+
+			auto file_path = ConfigMgr::Inst().GetFileOutPath();
+			auto file_path_str = (file_path / name).string();
+
+			Json::Value  rtvalue;
+			Defer defer([this, &rtvalue, session]() {
+				std::string return_str = rtvalue.toStyledString();
+				session->Send(return_str, ID_UPLOAD_FILE_RSP);
+				});
+
+			std::hash<std::string> hash_fn;
+			size_t hash_value = hash_fn(name);
+			int index = hash_value % FILE_WORKER_COUNT;
+
+			// 获取或初始化文件接收状态
+			auto file_info = LogicSystem::GetInstance()->GetFileInfo(md5);
+			if (!file_info) {
+				file_info = std::make_shared<FileInfo>();
+				file_info->_name = name;
+				file_info->_file_path_str = file_path_str;
+				file_info->_total_size = total_size;
+				file_info->_trans_size = 0;
+				file_info->_expected_seq = 1; // 期望下一个连续包号
+				LogicSystem::GetInstance()->AddMD5File(md5, file_info);
+			}
+
+			// 累计确认逻辑（TCP 标准）
+			if (seq == file_info->_expected_seq) {
+				// 包是连续的 >> 滑动窗口
+				file_info->_expected_seq++;
+				file_info->_trans_size = trans_size;
+			}
+			// 服务器 ACK = 连续收到的最后一个包号
+			int ack_seq = file_info->_expected_seq - 1;
+
+			// 交给文件线程写盘
+			FileSystem::GetInstance()->PostMsgToQue(
+				make_shared<FileTask>(session, name, seq, total_size,
+					trans_size, last, file_data),
+				index
+			);
+
+			rtvalue["error"] = ErrorCodes::Success;
+			rtvalue["total_size"] = total_size;
+			rtvalue["seq"] = ack_seq;   // 返回正确 ACK，不是返回客户端 seq
+			rtvalue["name"] = name;
+			rtvalue["trans_size"] = file_info->_trans_size;
+			rtvalue["last"] = last;
+			rtvalue["md5"] = md5;
+		};
 
 
 

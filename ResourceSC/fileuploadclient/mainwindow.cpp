@@ -208,6 +208,7 @@ void MainWindow::on_uploadBtn_clicked()
 }
 */
 
+/*
 //void MainWindow::on_uploadBtn_clicked()
 //{
 //    ui->uploadBtn->setEnabled(false);
@@ -370,6 +371,7 @@ void MainWindow::on_uploadBtn_clicked()
 //    // 发送完成初始窗口后关闭文件（后续响应处理会再次打开文件读取）
 //    file.close();
 //}
+*/
 
 void MainWindow::on_uploadBtn_clicked()
 {
@@ -459,7 +461,8 @@ void MainWindow::on_uploadBtn_clicked()
     // 发送完成初始窗口后关闭文件（后续由 LogicMgr 继续打开文件发送）
     file.close();
 }
-void MainWindow::slot_pause_continue()
+
+void MainWindow::on_pauseBtn_clicked()
 {
     //续传状态或者初始状态，按下暂停按钮
     if (_cur_state == INIT || _cur_state == CONTINUE) {
@@ -491,3 +494,4 @@ void MainWindow::slot_pause_continue()
         return;
     }
 }
+

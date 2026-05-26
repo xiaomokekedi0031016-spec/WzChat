@@ -21,7 +21,9 @@ void LogicMgr::AddMD5File(const QString& fileMd5, const std::shared_ptr<QFileInf
 }
 
 // StartUpload: 在 MainWindow 发送初始窗口后调用，告知 LogicMgr 已发送了 initial_sent_count 个块
-void LogicMgr::StartUpload(const QString& fileMd5, const std::shared_ptr<QFileInfo>& fileInfo, int initial_sent_count)
+void LogicMgr::StartUpload(const QString& fileMd5,
+                           const std::shared_ptr<QFileInfo>& fileInfo,
+                           int initial_sent_count)
 {
     std::lock_guard<std::mutex> lock(_file_mtx);
     _map_md5_files[fileMd5] = fileInfo;
@@ -42,6 +44,10 @@ void LogicMgr::StartUpload(const QString& fileMd5, const std::shared_ptr<QFileIn
     st.ssthresh = 32;
     st.rtt_est_ms = 200.0;
     st.send_time.clear();
+    st.dup_ack_count = 0;
+    st.in_fast_recovery = false;
+    st.recover_seq = 0;
+    st.rto_ms = 1000;
 
     // 注意：此函数并不再重复发送 initial 数据块，MainWindow 已发送初始块
     _upload_states[fileMd5] = std::move(st);
@@ -66,9 +72,9 @@ LogicMgr::LogicMgr() :QObject(nullptr)
 
     //连接信号和槽函数
     connect(this, &LogicMgr::sig_logic_process, _worker,
-        &LogicWorker::slot_logic_process);
+            &LogicWorker::slot_logic_process);
     connect(_worker, &LogicWorker::sig_trans_size,
-        this, &LogicMgr::sig_trans_size);
+            this, &LogicMgr::sig_trans_size);
     //启动线程
     _work_thread->start();
 }
@@ -90,9 +96,9 @@ void LogicWorker::InitHandlers()
 
         auto data = obj["data"].toString();
         qDebug() << "recv data is " << data;
-        };
+    };
 
-    // 注册上传消息（带拥塞窗口自适应）
+    // 注册上传消息（带拥塞窗口自适应 + 快速重传/超时退避）
     _handlers[ID_UPLOAD_FILE_RSP] = [this](QJsonObject obj) {
         auto err = obj["error"].toInt();
         if (err != RSP_SUCCESS) {
@@ -125,7 +131,7 @@ void LogicWorker::InitHandlers()
             std::lock_guard<std::mutex> lock(LogicMgr::Inst()->_file_mtx);
             auto it = LogicMgr::Inst()->_upload_states.find(md5);
             if (it == LogicMgr::Inst()->_upload_states.end()) {
-                // 如果没有状态，初始化为只发送一个 ACK 后继续（兼容旧逻辑）
+                // 如果没有状态，初始化为只发送一个 ACK 后继续
                 UploadState st;
                 st.fileInfo = file_info;
                 st.total_size = total_size;
@@ -141,14 +147,73 @@ void LogicWorker::InitHandlers()
                 st.cwnd = INIT_SEND_WINDOW;
                 st.ssthresh = 32;
                 st.rtt_est_ms = 200.0;
+                st.dup_ack_count = 0;
+                st.in_fast_recovery = false;
+                st.recover_seq = 0;
+                st.rto_ms = 1000;
                 LogicMgr::Inst()->_upload_states[md5] = st;
                 it = LogicMgr::Inst()->_upload_states.find(md5);
             }
 
             UploadState& st = it.value();
 
+            // 更新 RTO 基于最新 RTT 估计
+            st.rto_ms = std::max(1000, static_cast<int>(st.rtt_est_ms * 2));
+
+            // 检查是否有超时包（选择最早发送且未被 ACK 的 seq）
+            qint64 now_ms_check = QDateTime::currentMSecsSinceEpoch();
+            qint64 earliest_ts = LLONG_MAX;
+            int earliest_seq = -1;
+            for (auto iter = st.send_time.begin(); iter != st.send_time.end(); ++iter) {
+                int seq = iter.key();
+                if (seq <= st.last_ack_seq) continue; // 已被 ack/忽略
+                qint64 ts = iter.value();
+                if (ts < earliest_ts) {
+                    earliest_ts = ts;
+                    earliest_seq = seq;
+                }
+            }
+            if (earliest_seq != -1 && (now_ms_check - earliest_ts) > st.rto_ms) {
+                // 超时退避
+                st.ssthresh = std::max(1, st.cwnd / 2);
+                st.cwnd = 1;
+                st.dup_ack_count = 0;
+                st.in_fast_recovery = false;
+                // 触发重传最早未被确认的块
+                int to_retrans = st.last_ack_seq + 1;
+                if (to_retrans <= st.last_seq) {
+                    QFile file(st.fileInfo->filePath());
+                    if (file.open(QIODevice::ReadOnly)) {
+                        qint64 offset = static_cast<qint64>(to_retrans - 1) * MAX_FILE_LEN;
+                        file.seek(offset);
+                        QByteArray buffer = file.read(MAX_FILE_LEN);
+                        if (!buffer.isEmpty()) {
+                            QJsonObject jsonObj;
+                            QString base64Data = buffer.toBase64();
+                            jsonObj["md5"] = md5;
+                            jsonObj["name"] = st.fileInfo->fileName();
+                            jsonObj["seq"] = to_retrans;
+                            jsonObj["trans_size"] = static_cast<int>(offset + buffer.size());
+                            jsonObj["total_size"] = st.total_size;
+                            jsonObj["last"] = (static_cast<int>(offset + buffer.size()) == st.total_size) ? 1 : 0;
+                            jsonObj["data"] = base64Data;
+                            jsonObj["last_seq"] = st.last_seq;
+                            QJsonDocument doc(jsonObj);
+                            auto send_data = doc.toJson();
+                            st.send_time[to_retrans] = QDateTime::currentMSecsSinceEpoch();
+                            TcpClient::Inst().sendMsg(ID_UPLOAD_FILE_REQ, send_data);
+                            qDebug() << "RTO retransmit seq:" << to_retrans << " md5:" << md5;
+                        }
+                        file.close();
+                    }
+                }
+            }
+
             // 更新已确认 seq（如果服务器返回的是已确认的 seq）
             if (ack_seq > st.last_ack_seq) {
+                // 收到新的 ACK，重置重复 ACK 计数
+                st.dup_ack_count = 0;
+
                 // 计算 RTT：若存在发送时间记录
                 qint64 now_ms = QDateTime::currentMSecsSinceEpoch();
                 if (st.send_time.contains(ack_seq)) {
@@ -165,31 +230,88 @@ void LogicWorker::InitHandlers()
                 st.last_ack_seq = ack_seq;
                 st.in_flight = std::max(0, st.in_flight - newly_acked);
 
-                // 拥塞控制（AIMD）
-                if (st.cwnd < st.ssthresh) {
-                    // 慢启动：指数增长（每个 ACK 增长 1，简单实现近似加倍）
-                    st.cwnd = std::min(MAX_CWND, st.cwnd + newly_acked);
+                // 拥塞控制（AIMD + 快速恢复）
+                if (st.in_fast_recovery) {
+                    // 在快速恢复阶段，如果 ACK 已覆盖到恢复点或有新的进展则退出快速恢复
+                    if (ack_seq >= st.recover_seq) {
+                        st.in_fast_recovery = false;
+                        st.cwnd = std::max(1, st.ssthresh);
+                        st.dup_ack_count = 0;
+                    }
+                    else {
+                        // 部分 ACK 在快速恢复，如 RFC 建议，可适当减少 cwnd
+                        // 这里保持 cwnd 不变直到退出恢复
+                    }
                 }
                 else {
-                    // 拥塞避免：每 RTT 增长 1，这里每个 ACK 增长 1/cwnd，累积近似为 +1/RTT
-                    // 为实现简洁，这里用加法增 1 当收到 cwnd 个 ACK
-                    static QMap<QString, int> ack_accum;
-                    ack_accum[md5] += newly_acked;
-                    if (ack_accum[md5] >= st.cwnd) {
-                        st.cwnd = std::min(MAX_CWND, st.cwnd + 1);
-                        ack_accum[md5] = 0;
+                    if (st.cwnd < st.ssthresh) {
+                        // 慢启动：指数增长（每个 ACK 增长 1）
+                        st.cwnd = std::min(MAX_CWND, st.cwnd + newly_acked);
+                    }
+                    else {
+                        // 拥塞避免：每 RTT 增长约 1（每收到 cwnd 个 ACK 增长 1）
+                        static QMap<QString, int> ack_accum;
+                        ack_accum[md5] += newly_acked;
+                        if (ack_accum[md5] >= st.cwnd) {
+                            st.cwnd = std::min(MAX_CWND, st.cwnd + 1);
+                            ack_accum[md5] = 0;
+                        }
                     }
                 }
             }
             else {
-                // 重复 ACK（没有新的 ack_seq），可以考虑快速恢复（这里简单实现计数）
-                // 为简化，不实现 dup-ack 快速重传，但可在需时扩展
-                // 如果 RTT 很大，视为拥塞，进行乘法减小
-                qint64 now_ms = QDateTime::currentMSecsSinceEpoch();
-                bool rtt_large = st.rtt_est_ms > 2000.0; // 经验阈值
-                if (rtt_large) {
+                // 重复 ACK（没有新的 ack_seq）
+                st.dup_ack_count++;
+                qDebug() << "dup ACK count:" << st.dup_ack_count << " md5:" << md5;
+                if (st.dup_ack_count >= 3 && !st.in_fast_recovery) {
+                    // 快速重传 + 快速恢复
                     st.ssthresh = std::max(1, st.cwnd / 2);
-                    st.cwnd = std::max(1, st.ssthresh);
+                    st.cwnd = std::min(MAX_CWND, st.ssthresh + 3);
+                    st.in_fast_recovery = true;
+                    // recover_seq 通常设置为最高已发送 seq（这里用 next_seq_to_send - 1）
+                    st.recover_seq = std::max(
+                        st.next_seq_to_send - 1,   // 已经发出去的最后一个包
+                        st.last_ack_seq + 1        // 丢失的那个包
+                        );
+                    // 立即重传丢失的数据块（last_ack_seq + 1）
+                    int to_retrans = st.last_ack_seq + 1;
+                    if (to_retrans <= st.last_seq) {
+                        QFile file(st.fileInfo->filePath());
+                        if (file.open(QIODevice::ReadOnly)) {
+                            qint64 offset = static_cast<qint64>(to_retrans - 1) * MAX_FILE_LEN;
+                            file.seek(offset);
+                            QByteArray buffer = file.read(MAX_FILE_LEN);
+                            if (!buffer.isEmpty()) {
+                                QJsonObject jsonObj;
+                                QString base64Data = buffer.toBase64();
+                                jsonObj["md5"] = md5;
+                                jsonObj["name"] = st.fileInfo->fileName();
+                                jsonObj["seq"] = to_retrans;
+                                jsonObj["trans_size"] = static_cast<int>(offset + buffer.size());
+                                jsonObj["total_size"] = st.total_size;
+                                jsonObj["last"] = (static_cast<int>(offset + buffer.size()) == st.total_size) ? 1 : 0;
+                                jsonObj["data"] = base64Data;
+                                jsonObj["last_seq"] = st.last_seq;
+                                QJsonDocument doc(jsonObj);
+                                auto send_data = doc.toJson();
+                                st.send_time[to_retrans] = QDateTime::currentMSecsSinceEpoch();
+                                TcpClient::Inst().sendMsg(ID_UPLOAD_FILE_REQ, send_data);
+                                qDebug() << "Fast retransmit seq:" << to_retrans << " md5:" << md5;
+                            }
+                            file.close();
+                        }
+                    }
+                }
+                else {
+                    // 若 RTT 很大，认为可能拥塞，进行保守收缩（额外策略）
+                    qint64 now_ms = QDateTime::currentMSecsSinceEpoch();
+                    bool rtt_large = st.rtt_est_ms > 2000.0; // 经验阈值
+                    if (rtt_large) {
+                        st.ssthresh = std::max(1, st.cwnd / 2);
+                        st.cwnd = std::max(1, st.ssthresh);
+                        st.dup_ack_count = 0;
+                        st.in_fast_recovery = false;
+                    }
                 }
             }
 
@@ -251,7 +373,161 @@ void LogicWorker::InitHandlers()
             // 限制 cwnd 不超过 MAX_CWND
             if (st.cwnd > MAX_CWND) st.cwnd = MAX_CWND;
         } // end locked block
-        };
+    };
+
+    _handlers[ID_SYNC_FILE_RSP] = [this](QJsonObject obj) {
+        auto err = obj["error"].toInt();
+        if (err != RSP_SUCCESS) {
+            qDebug() << " msg rsp err is " << err;
+            return;
+        }
+        auto md5 = obj["md5"].toString();
+        auto seq = obj["seq"].toInt();
+        auto total_size = obj["total_size"].toInt();
+        auto trans_size = obj["trans_size"].toInt();
+
+        auto file_info = LogicMgr::Inst()->GetFileInfo(md5);
+        if (!file_info) {
+            qDebug() << "not found file";
+            return;
+        }
+
+        // 使用 UploadState 和拥塞窗口发送（与 ID_UPLOAD_FILE_RSP 保持一致的拥塞控制策略）
+        {
+            std::lock_guard<std::mutex> lock(LogicMgr::Inst()->_file_mtx);
+            auto it = LogicMgr::Inst()->_upload_states.find(md5);
+            if (it == LogicMgr::Inst()->_upload_states.end()) {
+                // 初始化 UploadState
+                UploadState st;
+                st.fileInfo = file_info;
+                st.total_size = total_size;
+                if (st.total_size % MAX_FILE_LEN) {
+                    st.last_seq = (st.total_size / MAX_FILE_LEN) + 1;
+                }
+                else {
+                    st.last_seq = st.total_size / MAX_FILE_LEN;
+                }
+                // 将已确认 seq 设置为服务器返回的 seq（已确认到该 seq）
+                st.last_ack_seq = seq;
+                // 根据服务器返回的字节数推断下一个要发送的 seq
+                st.next_seq_to_send = (trans_size / MAX_FILE_LEN) + 1;
+                st.in_flight = 0;
+                st.cwnd = INIT_SEND_WINDOW;
+                st.ssthresh = 32;
+                st.rtt_est_ms = 200.0;
+                st.dup_ack_count = 0;
+                st.in_fast_recovery = false;
+                st.recover_seq = 0;
+                st.rto_ms = 1000;
+                LogicMgr::Inst()->_upload_states[md5] = st;
+                it = LogicMgr::Inst()->_upload_states.find(md5);
+            }
+
+            UploadState& st = it.value();
+
+            // 更新 RTO 基于最新 RTT 估计
+            st.rto_ms = std::max(1000, static_cast<int>(st.rtt_est_ms * 2));
+
+            // 如果服务器返回的 trans_size 比本地记录更靠前，更新 next_seq_to_send
+            int computed_next = (trans_size / MAX_FILE_LEN) + 1;
+            if (computed_next > st.next_seq_to_send) {
+                st.next_seq_to_send = computed_next;
+            }
+            // 保证 next_seq_to_send 至少为 last_ack_seq + 1
+            if (st.next_seq_to_send <= st.last_ack_seq) {
+                st.next_seq_to_send = st.last_ack_seq + 1;
+            }
+
+            // 检查超时（同上逻辑）
+            qint64 now_ms_check = QDateTime::currentMSecsSinceEpoch();
+            qint64 earliest_ts = LLONG_MAX;
+            int earliest_seq = -1;
+            for (auto iter = st.send_time.begin(); iter != st.send_time.end(); ++iter) {
+                int s = iter.key();
+                if (s <= st.last_ack_seq) continue;
+                qint64 ts = iter.value();
+                if (ts < earliest_ts) {
+                    earliest_ts = ts;
+                    earliest_seq = s;
+                }
+            }
+            if (earliest_seq != -1 && (now_ms_check - earliest_ts) > st.rto_ms) {
+                st.ssthresh = std::max(1, st.cwnd / 2);
+                st.cwnd = 1;
+                st.dup_ack_count = 0;
+                st.in_fast_recovery = false;
+                int to_retrans = st.last_ack_seq + 1;
+                if (to_retrans <= st.last_seq) {
+                    QFile file(st.fileInfo->filePath());
+                    if (file.open(QIODevice::ReadOnly)) {
+                        qint64 offset = static_cast<qint64>(to_retrans - 1) * MAX_FILE_LEN;
+                        file.seek(offset);
+                        QByteArray buffer = file.read(MAX_FILE_LEN);
+                        if (!buffer.isEmpty()) {
+                            QJsonObject jsonObj;
+                            QString base64Data = buffer.toBase64();
+                            jsonObj["md5"] = md5;
+                            jsonObj["name"] = st.fileInfo->fileName();
+                            jsonObj["seq"] = to_retrans;
+                            jsonObj["trans_size"] = static_cast<int>(offset + buffer.size());
+                            jsonObj["total_size"] = st.total_size;
+                            jsonObj["last"] = (static_cast<int>(offset + buffer.size()) == st.total_size) ? 1 : 0;
+                            jsonObj["data"] = base64Data;
+                            jsonObj["last_seq"] = st.last_seq;
+                            QJsonDocument doc(jsonObj);
+                            auto send_data = doc.toJson();
+                            st.send_time[to_retrans] = QDateTime::currentMSecsSinceEpoch();
+                            TcpClient::Inst().sendMsg(ID_UPLOAD_FILE_REQ, send_data);
+                            qDebug() << "RTO retransmit seq:" << to_retrans << " md5:" << md5;
+                        }
+                        file.close();
+                    }
+                }
+            }
+
+            // 填充窗口发送数据
+            int can_send = st.cwnd - st.in_flight;
+            while (can_send > 0 && st.next_seq_to_send <= st.last_seq && !LogicMgr::Inst()->Pause()) {
+                QFile file(st.fileInfo->filePath());
+                if (!file.open(QIODevice::ReadOnly)) {
+                    qWarning() << "Could not open file:" << file.errorString();
+                    break;
+                }
+                qint64 offset = static_cast<qint64>(st.next_seq_to_send - 1) * MAX_FILE_LEN;
+                file.seek(offset);
+                QByteArray buffer = file.read(MAX_FILE_LEN);
+                if (buffer.isEmpty()) {
+                    file.close();
+                    break;
+                }
+
+                QJsonObject jsonObj;
+                QString base64Data = buffer.toBase64();
+                jsonObj["md5"] = md5;
+                jsonObj["name"] = st.fileInfo->fileName();
+                jsonObj["seq"] = st.next_seq_to_send;
+                jsonObj["trans_size"] = static_cast<int>(offset + buffer.size());
+                jsonObj["total_size"] = st.total_size;
+                jsonObj["last"] = (static_cast<int>(offset + buffer.size()) == st.total_size) ? 1 : 0;
+                jsonObj["data"] = base64Data;
+                jsonObj["last_seq"] = st.last_seq;
+                QJsonDocument doc(jsonObj);
+                auto send_data = doc.toJson();
+
+                // 记录发送时间用于 RTT 估计
+                st.send_time[st.next_seq_to_send] = QDateTime::currentMSecsSinceEpoch();
+
+                TcpClient::Inst().sendMsg(ID_UPLOAD_FILE_REQ, send_data);
+
+                st.in_flight++;
+                st.next_seq_to_send++;
+                can_send = st.cwnd - st.in_flight;
+                file.close();
+            }
+
+            if (st.cwnd > MAX_CWND) st.cwnd = MAX_CWND;
+        } // end locked block
+    };
 }
 
 void LogicWorker::slot_logic_process(quint16 msgid, QJsonObject obj)
